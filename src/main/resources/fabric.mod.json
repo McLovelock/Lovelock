@@ -1,0 +1,44 @@
+{
+	"schemaVersion": 1,
+	"id": "lovelock",
+	"version": "${version}",
+	"name": "Lovelock",
+	"description": "This is an example description! Tell everyone what your mod is about!",
+	"authors": [
+		"Me!"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/lovelock/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"io.github.mclovelock.lovelock.Lovelock"
+		],
+		"client": [
+			"io.github.mclovelock.lovelock.LovelockClient"
+		],
+		"fabric-datagen": [
+			"io.github.mclovelock.lovelock.LovelockDataGenerator"
+		]
+	},
+	"mixins": [
+		"lovelock.mixins.json",
+		{
+			"config": "lovelock.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.15.11",
+		"minecraft": "~1.21",
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"another-mod": "*"
+	}
+}
