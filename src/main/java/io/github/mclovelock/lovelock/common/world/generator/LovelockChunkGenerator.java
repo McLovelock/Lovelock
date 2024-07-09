@@ -1,7 +1,10 @@
-package io.github.mclovelock.lovelock.world.generator;
+package io.github.mclovelock.lovelock.common.world.generator;
 
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import io.github.mclovelock.lovelock.common.world.generator.tectonics.TectonicChunk;
+import io.github.mclovelock.lovelock.common.world.generator.tectonics.TectonicPlate;
+import io.github.mclovelock.lovelock.common.world.generator.tectonics.TectonicsGenerator;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.registry.RegistryWrapper;
@@ -12,6 +15,7 @@ import net.minecraft.world.ChunkRegion;
 import net.minecraft.world.HeightLimitView;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.biome.Biome;
+import net.minecraft.world.biome.OverworldBiomeCreator;
 import net.minecraft.world.biome.source.BiomeAccess;
 import net.minecraft.world.biome.source.FixedBiomeSource;
 import net.minecraft.world.chunk.Chunk;
@@ -38,6 +42,8 @@ public class LovelockChunkGenerator extends ChunkGenerator {
 
     private final List<BlockState> layerBlocks = new ArrayList<>();
 
+    private final TectonicsGenerator tectonicsGenerator;
+
     private final RegistryEntry<Biome> biome;
 
     public LovelockChunkGenerator(RegistryEntry<Biome> biome) {
@@ -46,6 +52,8 @@ public class LovelockChunkGenerator extends ChunkGenerator {
         for (int i = 0; i < 1; i++) {
             layerBlocks.add(Blocks.PRISMARINE.getDefaultState());
         }
+
+        tectonicsGenerator = new TectonicsGenerator();
     }
 
     @Override
@@ -61,6 +69,7 @@ public class LovelockChunkGenerator extends ChunkGenerator {
 
     @Override
     public void buildSurface(ChunkRegion region, StructureAccessor structures, NoiseConfig noiseConfig, Chunk chunk) {
+        
     }
 
     @Override
@@ -70,13 +79,19 @@ public class LovelockChunkGenerator extends ChunkGenerator {
 
     @Override
     public CompletableFuture<Chunk> populateNoise(Blender blender, NoiseConfig noiseConfig, StructureAccessor structureAccessor, Chunk chunk) {
-        List<BlockState> list = layerBlocks;
         BlockPos.Mutable mutable = new BlockPos.Mutable();
         Heightmap heightmap = chunk.getHeightmap(Heightmap.Type.OCEAN_FLOOR_WG);
         Heightmap heightmap2 = chunk.getHeightmap(Heightmap.Type.WORLD_SURFACE_WG);
 
-        for (int i = 0; i < Math.min(chunk.getHeight(), list.size()); i++) {
-            BlockState blockState = (BlockState) list.get(i);
+        TectonicPlate localTectonicPlate = tectonicsGenerator.getTectonicPlateAt(chunk.getPos());
+
+        BlockState blockState = switch (localTectonicPlate.getPlateType()) {
+            case CONTINENTAL_PLATE -> Blocks.MOSS_BLOCK.getDefaultState();
+            case OCEANIC_PLATE -> Blocks.BASALT.getDefaultState();
+            case FAKE_PLATE_BORDER_TYPE -> Blocks.NETHERITE_BLOCK.getDefaultState();
+        };
+
+        for (int i = 0; i < localTectonicPlate.getPlateType().getAverageElevation(); i++) {
             if (blockState != null) {
                 int j = chunk.getBottomY() + i;
 

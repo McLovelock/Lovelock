@@ -4,7 +4,7 @@
       "type": "minecraft:overworld",
       "generator": {
         "type": "lovelock:lovelock",
-        "biome": "minecraft:deep_ocean"
+        "biome": "minecraft:plains"
       }
     }
   }

@@ -1,4 +1,4 @@
-package io.github.mclovelock.lovelock.world.generator;
+package io.github.mclovelock.lovelock.common.world.generator;
 
 import io.github.mclovelock.lovelock.Lovelock;
 import net.minecraft.registry.Registries;

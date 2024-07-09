@@ -1,6 +1,6 @@
 package io.github.mclovelock.lovelock;
 
-import io.github.mclovelock.lovelock.world.generator.LovelockChunkGenerators;
+import io.github.mclovelock.lovelock.common.world.generator.LovelockChunkGenerators;
 import net.fabricmc.api.ModInitializer;
 
 import org.slf4j.Logger;
