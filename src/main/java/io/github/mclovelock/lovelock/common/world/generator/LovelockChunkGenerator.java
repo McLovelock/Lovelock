@@ -2,9 +2,8 @@ package io.github.mclovelock.lovelock.common.world.generator;
 
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import io.github.mclovelock.lovelock.common.world.generator.tectonics.TectonicChunk;
 import io.github.mclovelock.lovelock.common.world.generator.tectonics.TectonicPlate;
-import io.github.mclovelock.lovelock.common.world.generator.tectonics.TectonicsGenerator;
+import io.github.mclovelock.lovelock.common.world.generator.tectonics.TectonicsGenerationHandler;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.registry.RegistryWrapper;
@@ -15,7 +14,6 @@ import net.minecraft.world.ChunkRegion;
 import net.minecraft.world.HeightLimitView;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.biome.Biome;
-import net.minecraft.world.biome.OverworldBiomeCreator;
 import net.minecraft.world.biome.source.BiomeAccess;
 import net.minecraft.world.biome.source.FixedBiomeSource;
 import net.minecraft.world.chunk.Chunk;
@@ -23,12 +21,10 @@ import net.minecraft.world.gen.GenerationStep;
 import net.minecraft.world.gen.StructureAccessor;
 import net.minecraft.world.gen.chunk.Blender;
 import net.minecraft.world.gen.chunk.ChunkGenerator;
-import net.minecraft.world.gen.chunk.NoiseChunkGenerator;
 import net.minecraft.world.gen.chunk.VerticalBlockSample;
 import net.minecraft.world.gen.chunk.placement.StructurePlacementCalculator;
 import net.minecraft.world.gen.noise.NoiseConfig;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
@@ -40,20 +36,15 @@ public class LovelockChunkGenerator extends ChunkGenerator {
                     .apply(instance, instance.stable(LovelockChunkGenerator::new))
     );
 
-    private final List<BlockState> layerBlocks = new ArrayList<>();
-
-    private final TectonicsGenerator tectonicsGenerator;
+    private final TectonicsGenerationHandler tectonicsGenerationHandler;
 
     private final RegistryEntry<Biome> biome;
 
     public LovelockChunkGenerator(RegistryEntry<Biome> biome) {
         super(new FixedBiomeSource(biome));
         this.biome = biome;
-        for (int i = 0; i < 1; i++) {
-            layerBlocks.add(Blocks.PRISMARINE.getDefaultState());
-        }
 
-        tectonicsGenerator = new TectonicsGenerator();
+        tectonicsGenerationHandler = new TectonicsGenerationHandler();
     }
 
     @Override
@@ -69,7 +60,7 @@ public class LovelockChunkGenerator extends ChunkGenerator {
 
     @Override
     public void buildSurface(ChunkRegion region, StructureAccessor structures, NoiseConfig noiseConfig, Chunk chunk) {
-        
+
     }
 
     @Override
@@ -83,24 +74,17 @@ public class LovelockChunkGenerator extends ChunkGenerator {
         Heightmap heightmap = chunk.getHeightmap(Heightmap.Type.OCEAN_FLOOR_WG);
         Heightmap heightmap2 = chunk.getHeightmap(Heightmap.Type.WORLD_SURFACE_WG);
 
-        TectonicPlate localTectonicPlate = tectonicsGenerator.getTectonicPlateAt(chunk.getPos());
+        BlockState blockState = Blocks.MOSS_BLOCK.getDefaultState();
 
-        BlockState blockState = switch (localTectonicPlate.getPlateType()) {
-            case CONTINENTAL_PLATE -> Blocks.MOSS_BLOCK.getDefaultState();
-            case OCEANIC_PLATE -> Blocks.BASALT.getDefaultState();
-            case FAKE_PLATE_BORDER_TYPE -> Blocks.NETHERITE_BLOCK.getDefaultState();
-        };
+        for (int x = 0; x < 16; x++) {
+            for (int z = 0; z < 16; z++) {
+                tectonicsGenerationHandler.getTectonicPlateAt(x, z);
 
-        for (int i = 0; i < localTectonicPlate.getPlateType().getAverageElevation(); i++) {
-            if (blockState != null) {
-                int j = chunk.getBottomY() + i;
-
-                for (int k = 0; k < 16; k++) {
-                    for (int l = 0; l < 16; l++) {
-                        chunk.setBlockState(mutable.set(k, j, l), blockState, false);
-                        heightmap.trackUpdate(k, j, l, blockState);
-                        heightmap2.trackUpdate(k, j, l, blockState);
-                    }
+                for (int y = 0; y < 1; y++) {
+                    int yChunk = chunk.getBottomY() + y;
+                    chunk.setBlockState(mutable.set(x, yChunk, z), blockState, false);
+                    heightmap.trackUpdate(x, yChunk, z, blockState);
+                    heightmap2.trackUpdate(x, yChunk, z, blockState);
                 }
             }
         }
@@ -110,27 +94,14 @@ public class LovelockChunkGenerator extends ChunkGenerator {
 
     @Override
     public int getHeight(int x, int z, Heightmap.Type heightmap, HeightLimitView world, NoiseConfig noiseConfig) {
-        List<BlockState> list = layerBlocks;
-
-        for (int i = Math.min(list.size(), world.getTopY()) - 1; i >= 0; i--) {
-            BlockState blockState = (BlockState)list.get(i);
-            if (blockState != null && heightmap.getBlockPredicate().test(blockState)) {
-                return world.getBottomY() + i + 1;
-            }
-        }
-
-        return world.getBottomY();
+        return 1;
     }
 
     @Override
     public VerticalBlockSample getColumnSample(int x, int z, HeightLimitView world, NoiseConfig noiseConfig) {
         return new VerticalBlockSample(
                 world.getBottomY(),
-                (BlockState[])layerBlocks
-                        .stream()
-                        .limit((long)world.getHeight())
-                        .map(state -> state == null ? Blocks.AIR.getDefaultState() : state)
-                        .toArray(BlockState[]::new)
+                new BlockState[] { Blocks.STONE.getDefaultState() }
         );
     }
 
