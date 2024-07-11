@@ -10,6 +10,10 @@ public class TectonicPlate {
         this.isOceanic = Random.create(specificSeed).nextBoolean();
     }
 
+    TectonicPlate(boolean isOceanic) {
+        this.isOceanic = isOceanic;
+    }
+
     public boolean isOceanic() {
         return isOceanic;
     }

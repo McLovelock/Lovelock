@@ -27,4 +27,12 @@ public class VoronoiCell {
         return site;
     }
 
+    public List<Integer> getVertices() {
+        return vertices;
+    }
+
+    public List<Edge> getEdges() {
+        return edges;
+    }
+
 }

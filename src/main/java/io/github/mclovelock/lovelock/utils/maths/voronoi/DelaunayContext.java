@@ -8,6 +8,9 @@ import java.util.List;
 
 public class DelaunayContext {
 
+    public static final double VERY_LARGE = 1000000000;
+    public static final double VERY_SMALL = -1000000000;
+
     private final List<VoronoiSite> sites;
     private final List<Triangle> triangulation;
 
@@ -17,15 +20,15 @@ public class DelaunayContext {
     }
 
     private Triangle addExteriorPoints() {
-        sites.add(new SiteImpl(Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY));
-        sites.add(new SiteImpl(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY));
-        sites.add(new SiteImpl(Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY));
+        sites.add(new SiteImpl(VERY_SMALL, VERY_SMALL));
+        sites.add(new SiteImpl(VERY_SMALL, VERY_LARGE));
+        sites.add(new SiteImpl(VERY_LARGE, VERY_LARGE));
 
         return new Triangle(sites.size() - 3, sites.size() - 2, sites.size() - 1);
     }
 
-    private void removeTriangle(int index) {
-        Triangle tri = triangulation.remove(index);
+    private void removeTriangle(Triangle tri) {
+        triangulation.remove(tri);
         tri.remove();
     }
 
@@ -54,20 +57,19 @@ public class DelaunayContext {
     void computeDelaunayTriangulation() {
         triangulation.add(addExteriorPoints());
 
-        var badTriangles = new ArrayList<Integer>();
+        var badTriangles = new ArrayList<Triangle>();
         var polygon = new ArrayList<Edge>();
         for (int i = 0; i < sites.size(); i++) {
             VoronoiSite site = sites.get(i);
 
             badTriangles.clear();
-            for (int j = 0; j < triangulation.size(); j++) {
-                Circumcircle c = circumcircle(triangulation.get(j));
+            for (Triangle tri : triangulation) {
+                Circumcircle c = circumcircle(tri);
                 if (Maths.distance(site.siteX(), site.siteY(), c.cx(), c.cy()) < c.r())
-                    badTriangles.add(j);
+                    badTriangles.add(tri);
             }
             polygon.clear();
-            for (int j : badTriangles) {
-                Triangle badTriangle = triangulation.get(j);
+            for (Triangle badTriangle : badTriangles) {
                 Edge[] edges = badTriangle.getEdges();
                 Triangle[] neighbours = badTriangle.getNeighbours();
                 for (int k = 0; k < 3; k++) {
@@ -75,19 +77,28 @@ public class DelaunayContext {
                         polygon.add(edges[k]);
                 }
             }
-            for (int j : badTriangles) {
-                removeTriangle(j);
+            for (Triangle bad : badTriangles) {
+                removeTriangle(bad);
             }
             for (Edge edge : polygon) {
                 var newTri = new Triangle(edge.a(), edge.b(), i);
                 triangulation.add(newTri);
             }
         }
-        for (int i = 0; i < triangulation.size(); i++) {
-            Triangle tri = triangulation.get(i);
+
+        var toRemove = new LinkedList<Triangle>();
+        for (Triangle tri : triangulation) {
             if (tri.getAIndex() >= sites.size() - 3 || tri.getBIndex() >= sites.size() - 3 || tri.getCIndex() >= sites.size() - 3)
-                removeTriangle(i);
+                toRemove.add(tri);
         }
+        for (Triangle tri : toRemove) {
+            removeTriangle(tri);
+        }
+
+        // Remove helper vertices
+        sites.removeLast();
+        sites.removeLast();
+        sites.removeLast();
     }
 
     public List<Triangle> getTriangulation() {

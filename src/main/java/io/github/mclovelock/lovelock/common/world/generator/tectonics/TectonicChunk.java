@@ -58,10 +58,10 @@ public class TectonicChunk implements VoronoiSite {
         long specificSeed = baseSeed + hash;
 
         var random = Random.create(specificSeed);
-        voronoiVertexX = gridX * TECTONIC_CHUNK_SIZE + random.nextBetween(0, TECTONIC_CHUNK_SIZE + 1);
-        voronoiVertexZ = gridZ * TECTONIC_CHUNK_SIZE + random.nextBetween(0, TECTONIC_CHUNK_SIZE + 1);
+        voronoiVertexX = gridX * TECTONIC_CHUNK_SIZE + random.nextBetween(0, TECTONIC_CHUNK_SIZE - 1);
+        voronoiVertexZ = gridZ * TECTONIC_CHUNK_SIZE + random.nextBetween(0, TECTONIC_CHUNK_SIZE - 1);
 
-        this.associatedPlate = new TectonicPlate(specificSeed);
+        this.associatedPlate = new TectonicPlate((gridX % 2 == 0) ^ (gridZ % 2 == 0));
     }
 
     TectonicChunk north() {
@@ -123,7 +123,7 @@ public class TectonicChunk implements VoronoiSite {
         return voronoiGraph;
     }
 
-    TectonicPlate getAssociatedPlate() {
+    public TectonicPlate getAssociatedPlate() {
         return associatedPlate;
     }
 

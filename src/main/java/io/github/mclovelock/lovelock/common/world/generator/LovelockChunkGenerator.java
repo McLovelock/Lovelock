@@ -3,6 +3,7 @@ package io.github.mclovelock.lovelock.common.world.generator;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import io.github.mclovelock.lovelock.Lovelock;
+import io.github.mclovelock.lovelock.common.world.generator.tectonics.TectonicChunk;
 import io.github.mclovelock.lovelock.common.world.generator.tectonics.TectonicPlate;
 import io.github.mclovelock.lovelock.common.world.generator.tectonics.TectonicsGenerationHandler;
 import net.minecraft.block.Block;
@@ -78,12 +79,19 @@ public class LovelockChunkGenerator extends ChunkGenerator {
 
         for (int x = 0; x < 16; x++) {
             for (int z = 0; z < 16; z++) {
-                TectonicPlate plate = tectonicsGenerationHandler.getTectonicPlateAt(x, z);
+                int worldX = chunk.getPos().getStartX() + x;
+                int worldZ = chunk.getPos().getStartZ() + z;
 
-                BlockState blockState = plate == null || plate.isOceanic() ? Blocks.WATER.getDefaultState() : Blocks.GRASS_BLOCK.getDefaultState();
+                TectonicChunk tChunk = tectonicsGenerationHandler.getTectonicPlateAt(worldX, worldZ);
+                TectonicPlate plate = tChunk.getAssociatedPlate();
+
+                BlockState blockState = plate.isOceanic() ? Blocks.WATER.getDefaultState() : Blocks.GRASS_BLOCK.getDefaultState();
+
+                if ((worldX == tChunk.siteX()) && (worldZ == tChunk.siteY()))
+                    blockState = Blocks.COAL_BLOCK.getDefaultState();
 
                 for (int y = 0; y < 2; y++) {
-                    int yChunk = chunk.getBottomY() + y + 1;
+                    int yChunk = chunk.getBottomY() + y;
                     chunk.setBlockState(mutable.set(x, yChunk, z), y == 0 ? Blocks.BEDROCK.getDefaultState() : blockState, false);
                     heightmap.trackUpdate(x, yChunk, z, blockState);
                     heightmap2.trackUpdate(x, yChunk, z, blockState);

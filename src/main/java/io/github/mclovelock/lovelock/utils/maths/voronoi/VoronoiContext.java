@@ -43,6 +43,8 @@ public class VoronoiContext {
             while ((next = next.neighbourWithSite(i, next)) != startTri && next != null) {
                 cell.edgeTo(dual.getTriangulation().indexOf(next));
             }
+
+            cells.add(cell);
         }
     }
 
@@ -56,6 +58,10 @@ public class VoronoiContext {
 
     public List<VoronoiCell> getCells() {
         return cells;
+    }
+
+    public List<VoronoiSite> getSites() {
+        return dual.getSites();
     }
 
 }

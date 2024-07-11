@@ -37,7 +37,7 @@ public class Triangle {
 
     Triangle neighbourWithSite(int site, Triangle previous) {
         for (Triangle neighbour : neighbours) {
-            if (neighbour == previous) continue;
+            if ((neighbour == null) || (neighbour == previous)) continue;
             if (neighbour.hasSite(site)) return neighbour;
         }
         return null;
