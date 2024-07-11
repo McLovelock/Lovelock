@@ -2,8 +2,10 @@ package io.github.mclovelock.lovelock.common.world.generator;
 
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import io.github.mclovelock.lovelock.Lovelock;
 import io.github.mclovelock.lovelock.common.world.generator.tectonics.TectonicPlate;
 import io.github.mclovelock.lovelock.common.world.generator.tectonics.TectonicsGenerationHandler;
+import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.registry.RegistryWrapper;
@@ -74,15 +76,15 @@ public class LovelockChunkGenerator extends ChunkGenerator {
         Heightmap heightmap = chunk.getHeightmap(Heightmap.Type.OCEAN_FLOOR_WG);
         Heightmap heightmap2 = chunk.getHeightmap(Heightmap.Type.WORLD_SURFACE_WG);
 
-        BlockState blockState = Blocks.MOSS_BLOCK.getDefaultState();
-
         for (int x = 0; x < 16; x++) {
             for (int z = 0; z < 16; z++) {
-                tectonicsGenerationHandler.getTectonicPlateAt(x, z);
+                TectonicPlate plate = tectonicsGenerationHandler.getTectonicPlateAt(x, z);
 
-                for (int y = 0; y < 1; y++) {
-                    int yChunk = chunk.getBottomY() + y;
-                    chunk.setBlockState(mutable.set(x, yChunk, z), blockState, false);
+                BlockState blockState = plate == null || plate.isOceanic() ? Blocks.WATER.getDefaultState() : Blocks.GRASS_BLOCK.getDefaultState();
+
+                for (int y = 0; y < 2; y++) {
+                    int yChunk = chunk.getBottomY() + y + 1;
+                    chunk.setBlockState(mutable.set(x, yChunk, z), y == 0 ? Blocks.BEDROCK.getDefaultState() : blockState, false);
                     heightmap.trackUpdate(x, yChunk, z, blockState);
                     heightmap2.trackUpdate(x, yChunk, z, blockState);
                 }
@@ -94,7 +96,7 @@ public class LovelockChunkGenerator extends ChunkGenerator {
 
     @Override
     public int getHeight(int x, int z, Heightmap.Type heightmap, HeightLimitView world, NoiseConfig noiseConfig) {
-        return 1;
+        return 2;
     }
 
     @Override

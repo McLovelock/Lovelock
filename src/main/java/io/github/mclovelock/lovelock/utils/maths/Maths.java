@@ -21,4 +21,14 @@ public final class Maths {
         return isEqual(a, b, TOLERANCE);
     }
 
+    public static double lineEqAt(double x, double y, double a, double b, double c) {
+        return a * x + b * y - c;
+    }
+
+    public static double distance(double x0, double y0, double x1, double y1) {
+        double dx = x1 - x0;
+        double dy = y1 - y0;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
 }

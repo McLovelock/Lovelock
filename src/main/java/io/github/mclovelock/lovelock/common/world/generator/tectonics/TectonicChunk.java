@@ -1,19 +1,19 @@
 package io.github.mclovelock.lovelock.common.world.generator.tectonics;
 
 import io.github.mclovelock.lovelock.utils.maths.Numerics;
-import io.github.mclovelock.lovelock.utils.maths.voronoi.VoronoiResult;
+import io.github.mclovelock.lovelock.utils.maths.voronoi.DelaunayContext;
+import io.github.mclovelock.lovelock.utils.maths.voronoi.VoronoiContext;
 import io.github.mclovelock.lovelock.utils.maths.voronoi.VoronoiSite;
 import io.github.mclovelock.lovelock.utils.maths.voronoi.VoronoiTesselator;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.random.Random;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class TectonicChunk implements VoronoiSite {
 
-    static final int TECTONIC_CHUNK_SIZE = 512;
+    static final int TECTONIC_CHUNK_SIZE = 32;
 
     static TectonicChunk fromBlockXZ(int blockX, int blockZ, long baseSeed) {
         int gridX = Math.floorDiv(blockX, TECTONIC_CHUNK_SIZE);
@@ -40,8 +40,10 @@ public class TectonicChunk implements VoronoiSite {
     private final int gridX, gridZ;
     private final long baseSeed;
 
+    private final TectonicPlate associatedPlate;
+
     private final int voronoiVertexX, voronoiVertexZ;
-    private VoronoiResult voronoiGraph;
+    private VoronoiContext voronoiGraph;
 
     private TectonicChunk north = null;
     private TectonicChunk south = null;
@@ -58,6 +60,8 @@ public class TectonicChunk implements VoronoiSite {
         var random = Random.create(specificSeed);
         voronoiVertexX = gridX * TECTONIC_CHUNK_SIZE + random.nextBetween(0, TECTONIC_CHUNK_SIZE + 1);
         voronoiVertexZ = gridZ * TECTONIC_CHUNK_SIZE + random.nextBetween(0, TECTONIC_CHUNK_SIZE + 1);
+
+        this.associatedPlate = new TectonicPlate(specificSeed);
     }
 
     TectonicChunk north() {
@@ -110,12 +114,17 @@ public class TectonicChunk implements VoronoiSite {
         return voronoiVertexZ;
     }
 
-    public VoronoiResult getVoronoiGraph() {
+    VoronoiContext getVoronoiGraph() {
         // only compute on request to avoid stack overflow by generating all TectonicChunks when loading the world.
-        if (voronoiGraph == null)
-            voronoiGraph = VoronoiTesselator.computeVoronoiDiagram(List.of(this,
-                north(), west(), south(), east(), northWest(), northEast(), southWest(), southEast()));
+        if (voronoiGraph == null) {
+            voronoiGraph = VoronoiTesselator.buildVoronoiGraph(this,
+                    north(), west(), south(), east(), northWest(), northEast(), southWest(), southEast());
+        }
         return voronoiGraph;
+    }
+
+    TectonicPlate getAssociatedPlate() {
+        return associatedPlate;
     }
 
     int getGridX() {
