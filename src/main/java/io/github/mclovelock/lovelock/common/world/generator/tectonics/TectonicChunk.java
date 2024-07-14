@@ -114,7 +114,7 @@ public class TectonicChunk implements VoronoiSite {
         return voronoiVertexZ;
     }
 
-    VoronoiContext getVoronoiGraph() {
+    public VoronoiContext getVoronoiGraph() {
         // only compute on request to avoid stack overflow by generating all TectonicChunks when loading the world.
         if (voronoiGraph == null) {
             voronoiGraph = VoronoiTesselator.buildVoronoiGraph(this,

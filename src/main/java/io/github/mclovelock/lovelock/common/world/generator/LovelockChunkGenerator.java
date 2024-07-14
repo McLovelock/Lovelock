@@ -6,6 +6,12 @@ import io.github.mclovelock.lovelock.Lovelock;
 import io.github.mclovelock.lovelock.common.world.generator.tectonics.TectonicChunk;
 import io.github.mclovelock.lovelock.common.world.generator.tectonics.TectonicPlate;
 import io.github.mclovelock.lovelock.common.world.generator.tectonics.TectonicsGenerationHandler;
+import io.github.mclovelock.lovelock.utils.maths.Maths;
+import io.github.mclovelock.lovelock.utils.maths.geometry.LineEquation;
+import io.github.mclovelock.lovelock.utils.maths.voronoi.Edge;
+import io.github.mclovelock.lovelock.utils.maths.voronoi.VoronoiCell;
+import io.github.mclovelock.lovelock.utils.maths.voronoi.VoronoiContext;
+import io.github.mclovelock.lovelock.utils.maths.voronoi.VoronoiSite;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -27,6 +33,7 @@ import net.minecraft.world.gen.chunk.ChunkGenerator;
 import net.minecraft.world.gen.chunk.VerticalBlockSample;
 import net.minecraft.world.gen.chunk.placement.StructurePlacementCalculator;
 import net.minecraft.world.gen.noise.NoiseConfig;
+import org.joml.Vector2d;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -82,13 +89,37 @@ public class LovelockChunkGenerator extends ChunkGenerator {
                 int worldX = chunk.getPos().getStartX() + x;
                 int worldZ = chunk.getPos().getStartZ() + z;
 
+                //VoronoiContext vc = tectonicsGenerationHandler.getTectonicPlateAt(worldX, worldZ);
+                //TectonicChunk tChunk = tectonicsGenerationHandler.getTectonicChunk(worldX, worldZ);
                 TectonicChunk tChunk = tectonicsGenerationHandler.getTectonicPlateAt(worldX, worldZ);
+                VoronoiContext vc = tChunk.getVoronoiGraph();
                 TectonicPlate plate = tChunk.getAssociatedPlate();
 
                 BlockState blockState = plate.isOceanic() ? Blocks.WATER.getDefaultState() : Blocks.GRASS_BLOCK.getDefaultState();
 
                 if ((worldX == tChunk.siteX()) && (worldZ == tChunk.siteY()))
                     blockState = Blocks.COAL_BLOCK.getDefaultState();
+
+                cells:
+                for (VoronoiCell cell : vc.getCells()) {
+                    for (Edge edge : cell.getEdges()) {
+                        VoronoiSite v0 = vc.getVertices()[edge.a()];
+                        VoronoiSite v1 = vc.getVertices()[edge.b()];
+
+                        var line = new LineEquation(v0.siteX(), v0.siteY(), v1.siteX(), v1.siteY());
+
+                        double at = line.at(worldX + 0.5, worldZ + 0.5);
+                        if (Math.abs(at) < 2.5) {
+                            blockState = Blocks.REDSTONE_BLOCK.getDefaultState();
+                            break cells;
+                        }
+                    }
+                }
+
+                for (VoronoiSite v : vc.getVertices()) {
+                    if ((worldX == (int)v.siteX()) && (worldZ == (int)v.siteY()))
+                        blockState = Blocks.EMERALD_BLOCK.getDefaultState();
+                }
 
                 for (int y = 0; y < 2; y++) {
                     int yChunk = chunk.getBottomY() + y;

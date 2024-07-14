@@ -20,22 +20,17 @@ public class DelaunayContext {
     }
 
     private Triangle addExteriorPoints() {
-        sites.add(new SiteImpl(VERY_SMALL, VERY_SMALL));
-        sites.add(new SiteImpl(VERY_SMALL, VERY_LARGE));
-        sites.add(new SiteImpl(VERY_LARGE, VERY_LARGE));
+        sites.add(new SiteImpl(-1e9, -1e9));
+        sites.add(new SiteImpl(-1e9,12e9));
+        sites.add(new SiteImpl(12e9,1e9));
 
         return new Triangle(sites.size() - 3, sites.size() - 2, sites.size() - 1);
     }
 
-    private void removeTriangle(Triangle tri) {
-        triangulation.remove(tri);
-        tri.remove();
-    }
-
     Circumcircle circumcircle(Triangle triangle) {
-        VoronoiSite a = sites.get(triangle.getAIndex());
-        VoronoiSite b = sites.get(triangle.getBIndex());
-        VoronoiSite c = sites.get(triangle.getCIndex());
+        VoronoiSite a = sites.get(triangle.a());
+        VoronoiSite b = sites.get(triangle.b());
+        VoronoiSite c = sites.get(triangle.c());
 
         double ax = a.siteX();
         double ay = a.siteY();
@@ -54,48 +49,124 @@ public class DelaunayContext {
         return new Circumcircle(ux + ax, uy + ay, Math.sqrt(ux * ux + uy * uy));
     }
 
-    void computeDelaunayTriangulation() {
-        triangulation.add(addExteriorPoints());
+    private Triangle makeSuperTriangle() {
+        double minX, minY, maxX, maxY;
+        minX = minY = Double.POSITIVE_INFINITY;
+        maxX = maxY = Double.NEGATIVE_INFINITY;
 
-        var badTriangles = new ArrayList<Triangle>();
-        var polygon = new ArrayList<Edge>();
-        for (int i = 0; i < sites.size(); i++) {
-            VoronoiSite site = sites.get(i);
+        for (VoronoiSite site : sites) {
+            minX = Math.min(minX, site.siteX());
+            minY = Math.min(minY, site.siteY());
+            maxX = Math.max(maxX, site.siteX());
+            maxY = Math.max(maxY, site.siteY());
+        }
 
-            badTriangles.clear();
-            for (Triangle tri : triangulation) {
-                Circumcircle c = circumcircle(tri);
-                if (Maths.distance(site.siteX(), site.siteY(), c.cx(), c.cy()) < c.r())
-                    badTriangles.add(tri);
-            }
-            polygon.clear();
-            for (Triangle badTriangle : badTriangles) {
-                Edge[] edges = badTriangle.getEdges();
-                Triangle[] neighbours = badTriangle.getNeighbours();
-                for (int k = 0; k < 3; k++) {
-                    if (neighbours[k] == null)
-                        polygon.add(edges[k]);
+        double dx = (maxX - minX) * 10;
+        double dy = (maxY - minY) * 10;
+
+        sites.addLast(new SiteImpl(minX - dx, minY - dy * 3));
+        sites.addLast(new SiteImpl(minX - dx, maxY + dy));
+        sites.addLast(new SiteImpl(maxX + dx * 3, maxY + dy));
+
+        return new Triangle(sites.size() - 3, sites.size() - 2, sites.size() - 1);
+    }
+
+    private List<Edge> uniqueEdges(List<Edge> edges) {
+        var uniqueEdges = new LinkedList<Edge>();
+        for (int i = 0; i < edges.size(); i++) {
+            boolean isUnique = true;
+
+            for (int j = 0; j < edges.size(); j++) {
+                if (i == j)
+                    continue;
+                if (edges.get(i).equals(edges.get(j))) {
+                    isUnique = false;
+                    break;
                 }
             }
-            for (Triangle bad : badTriangles) {
-                removeTriangle(bad);
+
+            if (isUnique)
+                uniqueEdges.add(edges.get(i));
+        }
+
+        return uniqueEdges;
+    }
+
+    private void addTriangle(Edge edge, int centerPoint) {
+        var tri = new Triangle(edge.a(), edge.b(), centerPoint);
+        for (Triangle existing : triangulation) {
+            if (existing.hasEdge(tri.edgeA())) {
+                existing.setNeighbourAdjacent(tri.edgeA(), tri);
+                tri.setNeighbourOpposite(tri.a(), existing);
+            } else if (existing.hasEdge(tri.edgeB())) {
+                existing.setNeighbourAdjacent(tri.edgeB(), tri);
+                tri.setNeighbourOpposite(tri.b(), existing);
+            } else if (existing.hasEdge(tri.edgeC())) {
+                existing.setNeighbourAdjacent(tri.edgeC(), tri);
+                tri.setNeighbourOpposite(tri.c(), existing);
             }
-            for (Edge edge : polygon) {
-                var newTri = new Triangle(edge.a(), edge.b(), i);
-                triangulation.add(newTri);
+        }
+        triangulation.add(tri);
+    }
+
+    private void removeTriangle(Triangle triangle) {
+        if (triangle.getNeighbourOppositeA() != null)
+            triangle.getNeighbourOppositeA().setNeighbourAdjacent(triangle.edgeA(), null);
+        if (triangle.getNeighbourOppositeB() != null)
+            triangle.getNeighbourOppositeB().setNeighbourAdjacent(triangle.edgeB(), null);
+        if (triangle.getNeighbourOppositeC() != null)
+            triangle.getNeighbourOppositeC().setNeighbourAdjacent(triangle.edgeC(), null);
+        triangulation.remove(triangle);
+    }
+
+    private void addVertex(int index, List<Triangle> triangles) {
+        VoronoiSite site = sites.get(index);
+
+        var polygon = new LinkedList<Edge>();
+        var badTriangles = new LinkedList<Triangle>();
+
+        for (Triangle triangle : triangles) {
+            Circumcircle circumcircle = circumcircle(triangle);
+            if (Maths.distance(site.siteX(), site.siteY(), circumcircle.cx(), circumcircle.cy()) < circumcircle.r()) {
+                polygon.add(triangle.edgeA());
+                polygon.add(triangle.edgeB());
+                polygon.add(triangle.edgeC());
+                badTriangles.add(triangle);
             }
         }
 
-        var toRemove = new LinkedList<Triangle>();
+        for (Triangle bad : badTriangles) {
+            removeTriangle(bad);
+        }
+
+        List<Edge> edges = uniqueEdges(polygon);
+
+        for (Edge edge : edges) {
+            addTriangle(edge, index);
+        }
+    }
+
+    void computeDelaunayTriangulation() {
+        Triangle st = makeSuperTriangle();
+
+        triangulation.clear();
+        triangulation.add(st);
+
+        for (int i = 0; i < sites.size(); i++) {
+            addVertex(i, triangulation);
+        }
+
+        var badTriangles = new LinkedList<Triangle>();
         for (Triangle tri : triangulation) {
-            if (tri.getAIndex() >= sites.size() - 3 || tri.getBIndex() >= sites.size() - 3 || tri.getCIndex() >= sites.size() - 3)
-                toRemove.add(tri);
+            if ((tri.a() == st.a()) || (tri.a() == st.b()) || (tri.a() == st.c()) ||
+                    (tri.b() == st.a()) || (tri.b() == st.b()) || (tri.b() == st.c()) ||
+                    (tri.c() == st.a()) || (tri.c() == st.b()) || (tri.c() == st.c()))
+                badTriangles.add(tri);
         }
-        for (Triangle tri : toRemove) {
-            removeTriangle(tri);
+        for (Triangle bad : badTriangles) {
+            removeTriangle(bad);
         }
 
-        // Remove helper vertices
         sites.removeLast();
         sites.removeLast();
         sites.removeLast();

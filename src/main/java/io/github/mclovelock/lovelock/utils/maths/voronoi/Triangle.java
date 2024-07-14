@@ -2,89 +2,137 @@ package io.github.mclovelock.lovelock.utils.maths.voronoi;
 
 public class Triangle {
 
-    private final int aIndex, bIndex, cIndex;
+    private final Triangle[] neighbours = new Triangle[3];
 
-    private final Edge[] edges;
-    private final Triangle[] neighbours;
+    private final int a, b, c;
 
-    Triangle(int aIndex, int bIndex, int cIndex) {
-        this.aIndex = aIndex;
-        this.bIndex = bIndex;
-        this.cIndex = cIndex;
-
-        this.edges = new Edge[3];
-        this.edges[0] = new Edge(bIndex, cIndex);
-        this.edges[1] = new Edge(aIndex, cIndex);
-        this.edges[2] = new Edge(aIndex, bIndex);
-
-        this.neighbours = new Triangle[3];
-    }
-
-    void remove() {
-        for (Triangle neighbour : neighbours) {
-            for (int i = 0; (i < 3) && (neighbour != null); i++) {
-                if (neighbour.neighbours[i] == this) {
-                    neighbour.neighbours[i] = null;
-                    break;
-                }
-            }
-        }
-    }
-
-    boolean hasSite(int site) {
-        return (aIndex == site) || (bIndex == site) || (cIndex == site);
-    }
-
-    Triangle neighbourWithSite(int site, Triangle previous) {
-        for (Triangle neighbour : neighbours) {
-            if ((neighbour == null) || (neighbour == previous)) continue;
-            if (neighbour.hasSite(site)) return neighbour;
-        }
-        return null;
+    public Triangle(int a, int b, int c) {
+        this.a = a;
+        this.b = b;
+        this.c = c;
     }
 
     public Edge edgeA() {
-        return edges[0];
+        return new Edge(b, c);
     }
 
     public Edge edgeB() {
-        return edges[1];
+        return new Edge(a, c);
     }
 
     public Edge edgeC() {
-        return edges[2];
+        return new Edge(a, b);
     }
 
-    public Edge[] getEdges() {
-        return edges;
+    public Edge edgeOpposite(int site) {
+        if (site == a)
+            return edgeA();
+        else if (site == b)
+            return edgeB();
+        else if (site == c)
+            return edgeC();
+        else
+            return null;
     }
 
-    public Triangle oppositeA() {
+    public Triangle getNeighbourOppositeA() {
         return neighbours[0];
     }
 
-    public Triangle oppositeB() {
+    public Triangle getNeighbourOppositeB() {
         return neighbours[1];
     }
 
-    public Triangle oppositeC() {
+    public Triangle getNeighbourOppositeC() {
         return neighbours[2];
+    }
+
+    public void setNeighbourOppositeA(Triangle neighbour) {
+        this.neighbours[0] = neighbour;
+    }
+
+    public void setNeighbourOppositeB(Triangle neighbour) {
+        this.neighbours[1] = neighbour;
+    }
+
+    public void setNeighbourOppositeC(Triangle neighbour) {
+        this.neighbours[2] = neighbour;
+    }
+
+    public Triangle getNeighbourOpposite(int point) {
+        if (point == a)
+            return getNeighbourOppositeA();
+        else if (point == b)
+            return getNeighbourOppositeB();
+        else if (point == c)
+            return getNeighbourOppositeC();
+        else
+            return null;
+    }
+
+    public void setNeighbourOpposite(int point, Triangle newNeighbour) {
+        if (point == a)
+            setNeighbourOppositeA(newNeighbour);
+        else if (point == b)
+            setNeighbourOppositeB(newNeighbour);
+        else if (point == c)
+            setNeighbourOppositeC(newNeighbour);
+    }
+
+    public Triangle getNeighbourAdjacent(Edge dividingEdge) {
+        if (((dividingEdge.a() == a) && (dividingEdge.b() == b)) || ((dividingEdge.a() == b) && (dividingEdge.b() == a)))
+            return getNeighbourOppositeC();
+        else if (((dividingEdge.a() == b) && (dividingEdge.b() == c)) || ((dividingEdge.a() == c) && (dividingEdge.b() == b)))
+            return getNeighbourOppositeA();
+        else if (((dividingEdge.a() == a) && (dividingEdge.b() == c)) || ((dividingEdge.a() == c) && (dividingEdge.b() == a)))
+            return getNeighbourOppositeB();
+        else
+            return null;
+    }
+
+    public void setNeighbourAdjacent(Edge dividingEdge, Triangle newNeighbour) {
+        if (((dividingEdge.a() == a) && (dividingEdge.b() == b)) || ((dividingEdge.a() == b) && (dividingEdge.b() == a)))
+            setNeighbourOppositeC(newNeighbour);
+        else if (((dividingEdge.a() == b) && (dividingEdge.b() == c)) || ((dividingEdge.a() == c) && (dividingEdge.b() == b)))
+            setNeighbourOppositeA(newNeighbour);
+        else if (((dividingEdge.a() == a) && (dividingEdge.b() == c)) || ((dividingEdge.a() == c) && (dividingEdge.b() == a)))
+            setNeighbourOppositeB(newNeighbour);
+    }
+
+    public boolean hasSite(int site) {
+        return (a == site) || (b == site) || (c == site);
+    }
+
+    public boolean hasEdge(Edge edge) {
+        Edge a = edgeA();
+        if (((edge.a() == a.a()) && (edge.b() == a.b())) || ((edge.a() == a.b()) && (edge.b() == a.a())))
+            return true;
+
+        Edge b = edgeB();
+        if (((edge.a() == b.a()) && (edge.b() == b.b())) || ((edge.a() == b.b()) && (edge.b() == b.a())))
+            return true;
+
+        Edge c = edgeC();
+        if (((edge.a() == c.a()) && (edge.b() == c.b())) || ((edge.a() == c.b()) && (edge.b() == c.a())))
+            return true;
+
+        return false;
     }
 
     public Triangle[] getNeighbours() {
         return neighbours;
     }
 
-    public int getAIndex() {
-        return aIndex;
+    public int a() {
+        return a;
     }
 
-    public int getBIndex() {
-        return bIndex;
+    public int b() {
+        return b;
     }
 
-    public int getCIndex() {
-        return cIndex;
+    public int c() {
+        return c;
     }
 
 }
