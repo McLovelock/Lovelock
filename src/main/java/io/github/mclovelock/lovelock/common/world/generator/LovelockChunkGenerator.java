@@ -1,18 +1,11 @@
 package io.github.mclovelock.lovelock.common.world.generator;
 
+import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import io.github.mclovelock.lovelock.Lovelock;
 import io.github.mclovelock.lovelock.common.world.generator.tectonics.TectonicChunk;
 import io.github.mclovelock.lovelock.common.world.generator.tectonics.TectonicPlate;
 import io.github.mclovelock.lovelock.common.world.generator.tectonics.TectonicsGenerationHandler;
-import io.github.mclovelock.lovelock.utils.maths.Maths;
-import io.github.mclovelock.lovelock.utils.maths.geometry.LineEquation;
-import io.github.mclovelock.lovelock.utils.maths.voronoi.Edge;
-import io.github.mclovelock.lovelock.utils.maths.voronoi.VoronoiCell;
-import io.github.mclovelock.lovelock.utils.maths.voronoi.VoronoiContext;
-import io.github.mclovelock.lovelock.utils.maths.voronoi.VoronoiSite;
-import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.registry.RegistryWrapper;
@@ -30,10 +23,10 @@ import net.minecraft.world.gen.GenerationStep;
 import net.minecraft.world.gen.StructureAccessor;
 import net.minecraft.world.gen.chunk.Blender;
 import net.minecraft.world.gen.chunk.ChunkGenerator;
+import net.minecraft.world.gen.chunk.NoiseChunkGenerator;
 import net.minecraft.world.gen.chunk.VerticalBlockSample;
 import net.minecraft.world.gen.chunk.placement.StructurePlacementCalculator;
 import net.minecraft.world.gen.noise.NoiseConfig;
-import org.joml.Vector2d;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -42,19 +35,23 @@ import java.util.stream.Stream;
 public class LovelockChunkGenerator extends ChunkGenerator {
 
     public static final MapCodec<LovelockChunkGenerator> CODEC = RecordCodecBuilder.mapCodec(
-            instance -> instance.group(Biome.REGISTRY_CODEC.fieldOf("biome").forGetter(LovelockChunkGenerator::getBiome))
-                    .apply(instance, instance.stable(LovelockChunkGenerator::new))
+            instance -> instance.group(
+                    Biome.REGISTRY_CODEC.fieldOf("biome").forGetter(generator -> generator.biome),
+                    Codec.LONG.fieldOf("seed").stable().orElse(System.nanoTime()).forGetter(generator -> generator.seed)
+                ).apply(instance, instance.stable(LovelockChunkGenerator::new))
     );
 
     private final TectonicsGenerationHandler tectonicsGenerationHandler;
 
     private final RegistryEntry<Biome> biome;
+    private final long seed;
 
-    public LovelockChunkGenerator(RegistryEntry<Biome> biome) {
+    private LovelockChunkGenerator(RegistryEntry<Biome> biome, long seed) {
         super(new FixedBiomeSource(biome));
         this.biome = biome;
+        this.seed = seed;
 
-        tectonicsGenerationHandler = new TectonicsGenerationHandler();
+        tectonicsGenerationHandler = new TectonicsGenerationHandler(this.seed);
     }
 
     @Override
@@ -70,7 +67,12 @@ public class LovelockChunkGenerator extends ChunkGenerator {
 
     @Override
     public void buildSurface(ChunkRegion region, StructureAccessor structures, NoiseConfig noiseConfig, Chunk chunk) {
-
+        BlockPos.Mutable mutable = new BlockPos.Mutable();
+        for (int x = 0; x < 16; x++) {
+            for (int z = 0; z < 16; z++) {
+                chunk.setBlockState(mutable.set(x, chunk.getBottomY(), z), Blocks.BEDROCK.getDefaultState(), false);
+            }
+        }
     }
 
     @Override
@@ -89,41 +91,16 @@ public class LovelockChunkGenerator extends ChunkGenerator {
                 int worldX = chunk.getPos().getStartX() + x;
                 int worldZ = chunk.getPos().getStartZ() + z;
 
-                //VoronoiContext vc = tectonicsGenerationHandler.getTectonicPlateAt(worldX, worldZ);
-                //TectonicChunk tChunk = tectonicsGenerationHandler.getTectonicChunk(worldX, worldZ);
                 TectonicChunk tChunk = tectonicsGenerationHandler.getTectonicPlateAt(worldX, worldZ);
-                VoronoiContext vc = tChunk.getVoronoiGraph();
-                TectonicPlate plate = tChunk.getAssociatedPlate();
+                var plate = tChunk.getAssociatedPlate();
+                BlockState blockState = plate.isOceanic() ? Blocks.WATER.getDefaultState() : Blocks.MOSS_BLOCK.getDefaultState();
 
-                BlockState blockState = plate.isOceanic() ? Blocks.WATER.getDefaultState() : Blocks.GRASS_BLOCK.getDefaultState();
-
-                if ((worldX == tChunk.siteX()) && (worldZ == tChunk.siteY()))
+                if ((worldX == tChunk.getSeedX()) && (worldZ == tChunk.getSeedZ()))
                     blockState = Blocks.COAL_BLOCK.getDefaultState();
 
-                cells:
-                for (VoronoiCell cell : vc.getCells()) {
-                    for (Edge edge : cell.getEdges()) {
-                        VoronoiSite v0 = vc.getVertices()[edge.a()];
-                        VoronoiSite v1 = vc.getVertices()[edge.b()];
-
-                        var line = new LineEquation(v0.siteX(), v0.siteY(), v1.siteX(), v1.siteY());
-
-                        double at = line.at(worldX + 0.5, worldZ + 0.5);
-                        if (Math.abs(at) < 2.5) {
-                            blockState = Blocks.REDSTONE_BLOCK.getDefaultState();
-                            break cells;
-                        }
-                    }
-                }
-
-                for (VoronoiSite v : vc.getVertices()) {
-                    if ((worldX == (int)v.siteX()) && (worldZ == (int)v.siteY()))
-                        blockState = Blocks.EMERALD_BLOCK.getDefaultState();
-                }
-
-                for (int y = 0; y < 2; y++) {
-                    int yChunk = chunk.getBottomY() + y;
-                    chunk.setBlockState(mutable.set(x, yChunk, z), y == 0 ? Blocks.BEDROCK.getDefaultState() : blockState, false);
+                for (int y = 0; y < 4; y++) {
+                    int yChunk = chunk.getBottomY() + y + 1;
+                    chunk.setBlockState(mutable.set(x, yChunk, z), blockState, false);
                     heightmap.trackUpdate(x, yChunk, z, blockState);
                     heightmap2.trackUpdate(x, yChunk, z, blockState);
                 }
@@ -168,7 +145,7 @@ public class LovelockChunkGenerator extends ChunkGenerator {
 
     @Override
     public int getMinimumY() {
-        return 0;
+        return -64;
     }
 
     @Override
@@ -178,11 +155,7 @@ public class LovelockChunkGenerator extends ChunkGenerator {
 
     @Override
     public int getSeaLevel() {
-        return -63;
-    }
-
-    public RegistryEntry<Biome> getBiome() {
-        return biome;
+        return 0;
     }
 
 }
